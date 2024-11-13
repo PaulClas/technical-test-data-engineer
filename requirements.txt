@@ -3,3 +3,9 @@ fastapi
 uvicorn
 fastapi_pagination
 pytest
+requests
+schedule
+sqlalchemy
+prometheus_client
+psycopg2-binary
+python-dotenv
