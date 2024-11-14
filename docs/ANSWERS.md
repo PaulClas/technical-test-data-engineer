@@ -143,7 +143,8 @@
     ```
 
     **Vérifier les logs**:
-   - Consultez les logs générés par le script `data_pipeline.py` pour vérifier que les données ont été récupérées et enregistrées correctement dans la base de données.
+   - Consultez les logs générés par le script `data_pipeline.py` pour vérifier que les données ont été récupérées et enregistrées correctement dans la base de données en allant consulté le serveur des logs Prometheus à l'adresse ```127.0.0.1:8080``` ou dans le fichier ```data_pipeline.log``` qui se trouve dans le dossier ```src/moovitamix_fastapi/```
+   
 
 ### Étape 3: Exécuter les tests avec `pytest`
 
@@ -202,6 +203,8 @@ En suivant ces étapes, vous devriez être en mesure de créer la base de donné
 
 ### Schéma de la base de données
 
+**RÉPONSE COURTE**: Pas besoin de se compliquer la vie avec un data lake ou d'autres solutions super fancy, PostgreSQL est notre meilleur ami dans le cas de ce projet vue les données que nous traitons.
+
 Pour stocker les informations récupérées des trois sources de données mentionnées (utilisateurs, pistes, historique d'écoute), voici un schéma de base de données relationnelle que nous pourrions utiliser :
 
 #### Table [`users`]
@@ -255,13 +258,30 @@ PostgreSQL est un bon choix pour un système de recommandation similaire à Spot
 - **Communauté et support** : PostgreSQL a une grande communauté active et un support étendu, ce qui facilite la résolution des problèmes et l'accès aux ressources.
 
 
-### Conclusion
-
-En utilisant PostgreSQL avec le schéma de base de données décrit ci-dessus, nous pouvons efficacement stocker et gérer les informations récupérées des trois sources de données. PostgreSQL offre les fonctionnalités nécessaires pour garantir la fiabilité, la performance et la sécurité des données, ce qui en fait un excellent choix pour MooVitamix.
-
 ### Étape 5
 
-_votre réponse ici_
+### Méthode de Surveillance du Pipeline de Données
+
+**RÉPONSE COURTE**: Il vaut mieux utiliser des outils comme Prometheus, Grafana ou Datadog à la place de ré-inventer la roue dans le cas de pipeline complexe en production. Dans notre cas, des métriques simples avec Prometheus et des logs vont faire l'affaire.
+
+Pour suivre la santé du pipeline de données dans son exécution quotidienne, nous utilisons une combinaison de journaux (logs) et de métriques de surveillance. Voici comment nous avons procédés :
+
+1. **Journaux (Logs)** :
+   - **Configuration des logs** : Nous avons configuré le script data_pipeline.py pour enregistrer les logs à la fois dans un fichier (`data_pipeline.log`) et dans la console. Cela permet de suivre les événements importants et les erreurs en temps réel et de les consulter ultérieurement.
+   - **Niveaux de logs** : Nous utilisons différents niveaux de logs (`INFO`, `ERROR`, etc.) pour catégoriser les messages et faciliter leur analyse.
+
+2. **Métriques de Surveillance avec Prometheus** :
+   - **Prometheus** : Nous utilisons Prometheus pour collecter et surveiller les métriques du pipeline de données. Prometheus est un système de surveillance et d'alerte open-source qui est bien adapté pour surveiller les applications et les infrastructures.
+   - **Métriques Clés** : Nous avons défini plusieurs métriques clés pour surveiller la santé du pipeline de données :
+     - **REQUEST_TIME** : Temps passé à traiter une requête. Cela nous permet de surveiller les performances du pipeline.
+     - **ERROR_COUNT** : Nombre total d'erreurs dans le pipeline. Cela nous permet de détecter et de réagir rapidement aux problèmes.
+     - **DATA_PROCESSED** : Quantité totale de données traitées. Cela nous permet de suivre le volume de données ingérées par le pipeline.
+     - **CPU_USAGE** : Utilisation du CPU du pipeline. Cela nous permet de surveiller la charge du CPU et d'identifier les goulots d'étranglement.
+     - **MEMORY_USAGE** : Utilisation de la mémoire du pipeline. Cela nous permet de surveiller la consommation de mémoire et d'optimiser les ressources.
+
+D'autres métriques importantes seraient la latence des requêtes, le débit des données, taux de succès des opérations, longueur des files d'attentes(queue), les entrées-sorties (I/O) et le trafic sur le reseau.
+
+La surveillance des pipelines de données est grandement facilitée par l'utilisation d'outils spécialisés comme Prometheus, Grafana ou Datadog.
 
 ### Étape 6
 
