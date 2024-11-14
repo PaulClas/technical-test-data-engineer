@@ -243,7 +243,7 @@ Cette table stocke l'historique d'écoute des utilisateurs.
 |------------------|------------|----------------------------|
 | id               | Integer    | PRIMARY KEY                |
 | user_id          | Integer    | FOREIGN KEY (users.id)     |
-| items            | JSON       |                            |
+| items            | JSON       | FOREIGN KEY (tracks.id)    |
 | created_at       | TIMESTAMP  | NOT NULL                   |
 | updated_at       | TIMESTAMP  | NOT NULL                   |
 
