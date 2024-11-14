@@ -6,16 +6,15 @@ import os
 import logging
 import argparse
 import threading
+import psutil
 from sqlalchemy import create_engine, Table, Column, Integer, String, MetaData, JSON, ForeignKey, TIMESTAMP, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.dialects.postgresql import insert
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from prometheus_client import start_http_server, Summary, Counter, Gauge
-from dotenv import load_dotenv
+from prometheus_client import REGISTRY
 
-# Load environment variables from .env file
-load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO,
@@ -26,12 +25,19 @@ logging.basicConfig(level=logging.INFO,
                     ])
 logger = logging.getLogger(__name__)
 
+# Log message to verify logging is working
+logger.info("Starting the data pipeline script")
+
 # Prometheus metrics
-REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request')
+REQUEST_TIME = Summary('request_processing_seconds', 'Time spent processing request in ms')
 ERROR_COUNT = Counter('pipeline_errors_total', 'Total number of errors in the pipeline')
 DATA_PROCESSED = Counter('data_processed_total', 'Total amount of data processed')
 CPU_USAGE = Gauge('cpu_usage', 'CPU usage of the pipeline')
 MEMORY_USAGE = Gauge('memory_usage', 'Memory usage of the pipeline')
+TOTAL_EXECUTION_TIME = Summary('total_execution_time_seconds', 'Total execution time of the pipeline')
+RECORDS_PROCESSED_USERS = Counter('records_processed_users_total', 'Total number of user records processed')
+RECORDS_PROCESSED_TRACKS = Counter('records_processed_tracks_total', 'Total number of track records processed')
+RECORDS_PROCESSED_HISTORY = Counter('records_processed_history_total', 'Total number of listen history records processed')
 
 # Remarque : Pour des raisons de sécurité, API_BASE_URL et DATABASE_URL doivent être stockés dans un fichier .env et non codés en claire dans le script.
 # Comme il s'agit d'un simple test à exécuter aussi facilement que possible, ces variables sont codées en clair ci-dessous.
@@ -122,14 +128,15 @@ def fetch_data(endpoint):
         raise
 
 @REQUEST_TIME.time()
-def save_data_to_db(data, table):
+def save_data_to_db(data, table, record_counter):
     start_time = time.time()
     try:
         stmt = insert(table).values(data['items'])
-        stmt = stmt.on_conflict_do_nothing() 
+        stmt = stmt.on_conflict_do_nothing()
         session.execute(stmt)
         session.commit()
         duration = time.time() - start_time
+        record_counter.inc(len(data['items']))
         logger.info(f"Saved {len(data['items'])} records to {table.name} in {duration:.2f} seconds")
         DATA_PROCESSED.inc(len(data['items']))
     except SQLAlchemyError as e:
@@ -138,8 +145,10 @@ def save_data_to_db(data, table):
         ERROR_COUNT.inc()
         raise
 
+@TOTAL_EXECUTION_TIME.time()
 def retrieve_and_save_data():
     logger.info("Starting data retrieval")
+    start_time = time.time()  # Start time for manual calculation
 
     try:
         with ThreadPoolExecutor(max_workers=3) as executor:
@@ -158,20 +167,46 @@ def retrieve_and_save_data():
 
         # Save users first to ensure foreign key constraints are met
         if "users" in results:
-            save_data_to_db(results["users"], users_table)
+            save_data_to_db(results["users"], users_table, RECORDS_PROCESSED_USERS)
 
         # Save tracks
         if "tracks" in results:
-            save_data_to_db(results["tracks"], tracks_table)
+            save_data_to_db(results["tracks"], tracks_table, RECORDS_PROCESSED_TRACKS)
 
         # Save listen history
         if "listen_history" in results:
-            save_data_to_db(results["listen_history"], listen_history_table)
+            save_data_to_db(results["listen_history"], listen_history_table, RECORDS_PROCESSED_HISTORY)
 
         logger.info("Data retrieval completed successfully")
     except Exception as e:
         logger.error(f"An error occurred: {e}")
         ERROR_COUNT.inc()
+        
+    end_time = time.time()  # End time for manual calculation
+    total_time = end_time - start_time
+    logger.info(f"Total execution time (manual calculation): {total_time:.2f} seconds")
+        
+    # Log Prometheus metrics
+    log_metrics()
+    
+def log_metrics():
+    process = psutil.Process(os.getpid())
+    memory_info = process.memory_info()
+    MEMORY_USAGE.set(memory_info.rss / (1024 * 1024))  # Convert bytes to MB
+    
+    cpu_usage = psutil.cpu_percent(interval=1)
+    CPU_USAGE.set(cpu_usage)
+    
+    logger.info("Prometheus Metrics:")
+    logger.info(f"  REQUEST_TIME: {REQUEST_TIME.collect()}")
+    logger.info(f"  ERROR_COUNT: {ERROR_COUNT.collect()}")
+    logger.info(f"  DATA_PROCESSED: {DATA_PROCESSED.collect()}")
+    logger.info(f"  CPU_USAGE: {CPU_USAGE.collect()}")
+    logger.info(f"  MEMORY_USAGE: {MEMORY_USAGE.collect()}")
+    logger.info(f"  TOTAL_EXECUTION_TIME: {TOTAL_EXECUTION_TIME.collect()}")
+    logger.info(f"  RECORDS_PROCESSED_USERS: {RECORDS_PROCESSED_USERS.collect()}")
+    logger.info(f"  RECORDS_PROCESSED_TRACKS: {RECORDS_PROCESSED_TRACKS.collect()}")
+    logger.info(f"  RECORDS_PROCESSED_HISTORY: {RECORDS_PROCESSED_HISTORY.collect()}")
 
 def manual_trigger_listener():
     while True:
