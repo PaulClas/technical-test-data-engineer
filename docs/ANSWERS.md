@@ -144,7 +144,7 @@
 
     **Vérifier les logs**:
    - Consultez les logs générés par le script `data_pipeline.py` pour vérifier que les données ont été récupérées et enregistrées correctement dans la base de données en allant consulté le serveur des logs Prometheus à l'adresse ```127.0.0.1:8080``` ou dans le fichier ```data_pipeline.log``` qui se trouve dans le dossier ```src/moovitamix_fastapi/```
-   
+
 
 ### Étape 3: Exécuter les tests avec `pytest`
 
@@ -285,8 +285,99 @@ La surveillance des pipelines de données est grandement facilitée par l'utilis
 
 ### Étape 6
 
-_votre réponse ici_
+**Diagramme pour automatiser le calcul des recommandations**
+
+Pour afficher les diagrammes Mermaid en Markdown, vous avez besoin d'un visualiseur ou éditeur Markdown qui prend en charge Mermaid. Voici quelques options :
+
+- VS Code : Utilisez l'extension "Markdown Preview Mermaid Support".
+- JetBrains (PyCharm, IntelliJ, etc.) : Le support Mermaid est intégré nativement.
+- GitHub : Prend en charge nativement la syntaxe Mermaid dans les fichiers Markdown.
+
+```mermaid
+flowchart TD
+    subgraph Sources["Sources de Données"]
+        A1[API Tracks] --> B1[Pipeline d'Ingestion]
+        A2[API Users] --> B1
+        A3[API Listen History] --> B1
+    end
+
+    subgraph Storage["Stockage"]
+        B1 --> C1[(Base de Données<br>Recommendations)]
+        C1 --> C2[(Feature Store)]
+    end
+
+    subgraph Training["Entraînement du Modèle"]
+        C2 --> D1[Feature Engineering]
+        D1 --> D2[Entraînement<br>Périodique]
+        D2 --> D3[Évaluation<br>du Modèle]
+        D3 -->|Métriques OK| D4[Déploiement<br>du Modèle]
+        D3 -->|Métriques NOK| D2
+    end
+
+    subgraph Serving["Serveur de Recommandations"]
+        D4 --> E1[Service de<br>Recommandation]
+        C2 --> E1
+        E1 --> E2[Cache Redis]
+        E2 --> E3[API de<br>Recommandation]
+    end
+
+    subgraph Monitoring["Supervision"]
+        E3 --> F1[Monitoring<br>des Performances]
+        F1 --> F2[Alerting]
+        F1 --> D2
+    end
+```
+
 
 ### Étape 7
 
-_votre réponse ici_
+**Diagramme pour le réentrainement du modèle de recommandation**
+
+Pour afficher les diagrammes Mermaid en Markdown, vous avez besoin d'un visualiseur ou éditeur Markdown qui prend en charge Mermaid. Voici quelques options :
+
+- VS Code : Utilisez l'extension "Markdown Preview Mermaid Support".
+- JetBrains (PyCharm, IntelliJ, etc.) : Le support Mermaid est intégré nativement.
+- GitHub : Prend en charge nativement la syntaxe Mermaid dans les fichiers Markdown.
+
+```mermaid
+flowchart TD
+    subgraph Triggers["Déclencheurs"]
+        A1[Planification<br>Périodique] --> B1
+        A2[Dégradation des<br>Performances] --> B1
+        A3[Volume Suffisant de<br>Nouvelles Données] --> B1
+    end
+
+    B1[Évaluation des<br>Conditions de<br>Réentraînement] --> B2{Conditions<br>Remplies?}
+    B2 -->|Non| B3[Attente du<br>Prochain Cycle]
+    B2 -->|Oui| C1
+
+    subgraph DataPrep["Préparation des Données"]
+        C1[Extraction des<br>Nouvelles Données] --> C2[Validation de<br>la Qualité]
+        C2 --> C3[Feature<br>Engineering]
+        C3 --> C4[Train/Val/Test<br>Split]
+    end
+
+    subgraph Training["Entraînement"]
+        C4 --> D1[Entraînement sur<br>Données Historiques]
+        D1 --> D2[Fine-tuning sur<br>Données Récentes]
+        D2 --> D3[Validation<br>Croisée]
+    end
+
+    subgraph Evaluation["Évaluation"]
+        D3 --> E1{Métriques<br>Améliorées?}
+        E1 -->|Non| E2[Conservation du<br>Modèle Actuel]
+        E1 -->|Oui| E3[Validation sur<br>Test Set]
+        E3 --> E4{Tests<br>Réussis?}
+        E4 -->|Non| E2
+        E4 -->|Oui| F1
+    end
+
+    subgraph Deployment["Déploiement"]
+        F1[Sauvegarde du<br>Modèle] --> F2[Tests de<br>Régression]
+        F2 --> F3[Déploiement<br>Blue/Green]
+        F3 --> F4[Monitoring<br>Post-déploiement]
+    end
+
+    E2 --> B3
+    F4 --> G1[Logs et<br>Métriques]
+    ```
